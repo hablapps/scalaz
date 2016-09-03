@@ -143,7 +143,14 @@ sealed abstract class IndexedStateTInstances extends IndexedStateTInstances0 {
     }
 }
 
-sealed abstract class StateTInstances3 extends IndexedStateTInstances {
+sealed abstract class StateTInstances4 extends IndexedStateTInstances {
+  implicit def stateTMonadError[S, F[_], E](implicit F0: MonadError[F, E]): MonadError[StateT[F, S, ?], E] =
+    new StateTMonadStateMonadError[S, F, E] {
+      implicit def F: MonadError[F, E] = F0
+    }
+}
+
+sealed abstract class StateTInstances3 extends StateTInstances4 {
   implicit def stateTBindRec[S, F[_]](implicit F0: Monad[F], F1: BindRec[F]): BindRec[StateT[F, S, ?]] =
     new StateTBindRec[S, F] {
       implicit def F: Monad[F] = F0
@@ -289,4 +296,20 @@ private trait StateTMonadStateMonadPlus[S, F[_]] extends StateTMonadState[S, F] 
   override final def G = F
 
   def empty[A]: StateT[F, S, A] = liftM[F, A](F.empty[A])
+}
+
+private trait StateTMonadStateMonadError[S, F[_], E] extends StateTMonadState[S, F] with StateTHoist[S] with MonadError[StateT[F, S, ?], E]{
+  implicit def F: MonadError[F, E]
+  
+  def raiseError[A](e: E): StateT[F,S,A] =
+    IndexedStateT(_ => F.raiseError(e))
+
+  def handleError[A](fa: StateT[F,S,A])(
+    f: E => StateT[F,S,A]): StateT[F,S,A] = 
+      fa.mapsf(sf => (s: S) => 
+        F.handleError(sf(s)){ e => 
+          val fe: F[S=>F[(S,A)]] = f(e).getF(F)
+          F.bind(fe)(ff => ff(s))
+        }
+      )
 }
