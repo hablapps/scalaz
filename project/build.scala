@@ -380,11 +380,10 @@ object build extends Build {
 
   lazy val publishSetting = publishTo <<= (version).apply{
     v =>
-      val nexus = "https://oss.sonatype.org/"
       if (v.trim.endsWith("SNAPSHOT"))
-        Some("snapshots" at nexus + "content/repositories/snapshots")
+        Some(Resolver.sftp("Speech repository", "andromeda", "/var/www/repo/snapshots"))
       else
-        Some("releases" at nexus + "service/local/staging/deploy/maven2")
+        Some(Resolver.sftp("Speech repository", "andromeda", "/var/www/repo/releases"))
   }
 
   lazy val credentialsSetting = credentials += {
